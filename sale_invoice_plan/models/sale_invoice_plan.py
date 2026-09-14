@@ -16,6 +16,12 @@ class SaleInvoicePlan(models.Model):
         index=True,
         ondelete="cascade",
     )
+    distribution_analytic_account_ids = fields.Many2many(
+        "account.analytic.account",
+        compute="_compute_distribution_analytic_account_ids",
+        string="Distribution Analytic Accounts",
+        store=True,
+    )
     partner_id = fields.Many2one(
         comodel_name="res.partner",
         string="Customer",
@@ -88,10 +94,19 @@ class SaleInvoicePlan(models.Model):
         for rec in self:
             rec.no_edit = rec._no_edit()
 
+    @api.depends("sale_id.order_line.distribution_analytic_account_ids")
+    def _compute_distribution_analytic_account_ids(self):
+        for plan in self:
+            plan.distribution_analytic_account_ids = plan.sale_id.order_line.mapped(
+                "distribution_analytic_account_ids"
+            )
+
     @api.depends("percent")
     def _compute_amount(self):
         for rec in self:
             amount_untaxed = rec.sale_id._origin.amount_untaxed
+            if not amount_untaxed:
+                continue
             # With invoice already created, no recompute
             if rec.invoiced:
                 rec.amount = rec.amount_invoiced
@@ -136,7 +151,12 @@ class SaleInvoicePlan(models.Model):
                 break
 
     def _get_amount_invoice(self, invoices):
-        """Hook function"""
+        """Hook function.
+
+        Excludes the down-payment product's lines, not the lines of other
+        sales orders: if `invoices` mixes lines from several orders, this
+        sums all of them regardless of which order this plan belongs to.
+        """
         amount_invoiced = sum(invoices.mapped("amount_untaxed"))
         deposit_product_id = (
             self.env["ir.config_parameter"]
@@ -178,9 +198,15 @@ class SaleInvoicePlan(models.Model):
             lambda ln: ln.display_type == "product"
         ):
             self._update_new_quantity(line, percent)
+        # Drop the lines computed on the pre-plan quantities (tax, discount,
+        # rounding, early payment discount, COGS...): Odoo recomputes them
+        # from the recorded quantities. Presentation lines never carry an
+        # account (enforced by account.move.line's own check constraints),
+        # so this never depends on enumerating which display_type is a
+        # presentation type.
         move.line_ids.filtered(
-            lambda x: x.display_type
-            not in ("product", "line_section", "line_note", "payment_term", "tax")
+            lambda x: x.display_type not in ("product", "payment_term", "tax")
+            and x.account_id
         ).unlink()
 
     def _update_new_quantity(self, line, percent):

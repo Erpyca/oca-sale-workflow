@@ -6,6 +6,10 @@
         <field name="arch" type="xml">
             <list editable="bottom">
                 <field name="no_edit" column_invisible="1" />
+                <field
+                    name="distribution_analytic_account_ids"
+                    widget="many2many_tags"
+                />
                 <field name="installment" readonly="no_edit" />
                 <field name="plan_date" readonly="no_edit" />
                 <field name="invoice_type" readonly="no_edit" />
@@ -126,6 +130,10 @@
             <search>
                 <field name="partner_id" />
                 <field name="sale_id" />
+                <field
+                    name="distribution_analytic_account_ids"
+                    widget="many2many_tags"
+                />
                 <field name="installment" />
                 <separator />
                 <filter
@@ -166,6 +174,12 @@
                         context="{'group_by':'sale_id'}"
                     />
                     <filter
+                        string="Distribution Analytic Account"
+                        name="groupby_distribution_analytic_account_ids"
+                        domain="[]"
+                        context="{'group_by':'distribution_analytic_account_ids'}"
+                    />
+                    <filter
                         string="Installment"
                         name="groupby_install"
                         domain="[]"
@@ -187,6 +201,10 @@
         <field name="arch" type="xml">
             <list edit="0" create="0" delete="0">
                 <field name="sale_id" />
+                <field
+                    name="distribution_analytic_account_ids"
+                    widget="many2many_tags"
+                />
                 <field name="installment" />
                 <field name="plan_date" />
                 <field name="invoice_type" />

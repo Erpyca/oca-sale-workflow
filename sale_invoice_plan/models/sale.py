@@ -140,6 +140,11 @@ class SaleOrder(models.Model):
         invoice_plan_id = self.env.context.get("invoice_plan_id")
         if invoice_plan_id:
             plan = self.env["sale.invoice.plan"].browse(invoice_plan_id)
+            # Applies this plan's recompute to every move `_create_invoices`
+            # returned. Safe as long as the batch that carries
+            # `invoice_plan_id` in its context is a single order; a
+            # multi-order/grouped batch would also touch invoices of the
+            # other orders.
             for move in moves:
                 plan._compute_new_invoice_quantity(move)
                 move.invoice_date = plan.plan_date
